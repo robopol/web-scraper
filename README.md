@@ -2,7 +2,7 @@
 
 A Python application for scraping websites with a user-friendly GUI interface. This tool allows you to extract data from websites, save HTML content of pages, and generate structured JSON output with metadata.
 
-![Web Scraper Screenshot](https://via.placeholder.com/800x500?text=Web+Scraper+Screenshot)
+![Web Scraper Screenshot](assets/scraper_gui_screenshot.png)
 
 ## Features
 
