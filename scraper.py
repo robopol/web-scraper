@@ -275,7 +275,7 @@ class RobopolScraper:
         
         return links
     
-    def download_images(self, soup, url):
+    def download_page_images(self, soup, url):
         """
         Download images from a page and save them to a directory.
         
@@ -358,7 +358,7 @@ class RobopolScraper:
         # Download images if enabled
         downloaded_images = []
         if self.download_images:
-            downloaded_images = self.download_images(soup, url)
+            downloaded_images = self.download_page_images(soup, url)
             self.status_callback(f"Downloaded {len(downloaded_images)} images for {url}")
         
         # Extract information
