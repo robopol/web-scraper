@@ -29,7 +29,8 @@ class RobopolScraper:
                  status_callback=None, progress_callback=None,
                  filter_eshop=True, filter_english=True, recursive=True,
                  request_delay=0.0, url_include_patterns=None, url_exclude_patterns=None,
-                 download_images=False, images_dir=None):
+                 download_images=False, images_dir=None,
+                 download_css=False, download_js=False, styles_dir=None, scripts_dir=None):
         """
         Initialization of the scraper.
         
@@ -46,6 +47,10 @@ class RobopolScraper:
             url_exclude_patterns (list): List of regex patterns for excluding URLs
             download_images (bool): Whether to download images from pages
             images_dir (str): Directory for downloaded images
+            download_css (bool): Whether to download CSS files
+            download_js (bool): Whether to download JavaScript files
+            styles_dir (str): Directory for downloaded CSS files
+            scripts_dir (str): Directory for downloaded JavaScript files
         """
         self.output_dir = output_dir
         self.base_url = base_url
@@ -58,6 +63,13 @@ class RobopolScraper:
         self.request_delay = request_delay
         self.download_images = download_images
         self.images_dir = images_dir
+        self.download_css = download_css
+        self.download_js = download_js
+        self.styles_dir = styles_dir
+        self.scripts_dir = scripts_dir
+        
+        # Flag to request stopping the scraper
+        self.stop_requested = False
         
         # Compile regex patterns for URL filters
         self.url_include_patterns = None
@@ -81,6 +93,8 @@ class RobopolScraper:
             'failed_scrapes': 0,
             'filtered_urls': 0,
             'downloaded_images': 0,
+            'downloaded_css': 0,
+            'downloaded_js': 0,
             'start_time': None,
             'end_time': None
         }
@@ -92,6 +106,10 @@ class RobopolScraper:
         os.makedirs(output_dir, exist_ok=True)
         if download_images and images_dir:
             os.makedirs(images_dir, exist_ok=True)
+        if download_css and styles_dir:
+            os.makedirs(styles_dir, exist_ok=True)
+        if download_js and scripts_dir:
+            os.makedirs(scripts_dir, exist_ok=True)
     
     def _default_status_callback(self, message):
         """Default function for printing status messages."""
@@ -332,6 +350,107 @@ class RobopolScraper:
         
         return downloaded_images
     
+    def download_page_resources(self, soup, url):
+        """
+        Download CSS and JavaScript files from a page.
+        
+        Args:
+            soup (BeautifulSoup): Analyzed page content
+            url (str): URL of the page
+            
+        Returns:
+            tuple: (downloaded_css, downloaded_js) with paths to downloaded files
+        """
+        downloaded_css = []
+        downloaded_js = []
+        
+        if not soup:
+            return downloaded_css, downloaded_js
+        
+        try:
+            parsed_url = urlparse(url)
+            path_elements = parsed_url.path.strip('/').split('/')
+            page_name = path_elements[-1] if path_elements and path_elements[-1] else "index"
+            
+            # Download CSS files
+            if self.download_css and self.styles_dir:
+                # Directory for CSS files for this page
+                page_styles_dir = os.path.join(self.styles_dir, page_name)
+                os.makedirs(page_styles_dir, exist_ok=True)
+                
+                # Find all link tags with rel="stylesheet"
+                for css_num, link_tag in enumerate(soup.find_all('link', rel="stylesheet", href=True)):
+                    href = link_tag['href']
+                    if not href:
+                        continue
+                    
+                    # Create absolute URL for the CSS
+                    css_url = urljoin(url, href)
+                    
+                    # Get filename
+                    css_filename = os.path.basename(urlparse(css_url).path)
+                    if not css_filename or not css_filename.endswith('.css'):
+                        css_filename = f"style_{css_num}.css"
+                    
+                    # Target path for the CSS
+                    css_path = os.path.join(page_styles_dir, css_filename)
+                    
+                    try:
+                        # Download and save the CSS
+                        if self.request_delay > 0:
+                            time.sleep(self.request_delay)
+                        
+                        response = requests.get(css_url, timeout=10)
+                        if response.status_code == 200:
+                            with open(css_path, 'wb') as f:
+                                f.write(response.content)
+                            downloaded_css.append(css_path)
+                            self.stats['downloaded_css'] += 1
+                    except Exception as e:
+                        self.status_callback(f"Error downloading CSS {css_url}: {e}")
+            
+            # Download JavaScript files
+            if self.download_js and self.scripts_dir:
+                # Directory for JS files for this page
+                page_scripts_dir = os.path.join(self.scripts_dir, page_name)
+                os.makedirs(page_scripts_dir, exist_ok=True)
+                
+                # Find all script tags with src attribute
+                for js_num, script_tag in enumerate(soup.find_all('script', src=True)):
+                    src = script_tag['src']
+                    if not src:
+                        continue
+                    
+                    # Create absolute URL for the JavaScript
+                    js_url = urljoin(url, src)
+                    
+                    # Get filename
+                    js_filename = os.path.basename(urlparse(js_url).path)
+                    if not js_filename or not js_filename.endswith(('.js', '.jsx')):
+                        js_filename = f"script_{js_num}.js"
+                    
+                    # Target path for the JavaScript
+                    js_path = os.path.join(page_scripts_dir, js_filename)
+                    
+                    try:
+                        # Download and save the JavaScript
+                        if self.request_delay > 0:
+                            time.sleep(self.request_delay)
+                        
+                        response = requests.get(js_url, timeout=10)
+                        if response.status_code == 200:
+                            with open(js_path, 'wb') as f:
+                                f.write(response.content)
+                            downloaded_js.append(js_path)
+                            self.stats['downloaded_js'] += 1
+                    except Exception as e:
+                        self.status_callback(f"Error downloading JavaScript {js_url}: {e}")
+                        
+        except Exception as e:
+            self.status_callback(f"Error processing resources for {url}: {e}")
+        
+        return downloaded_css, downloaded_js
+    
     def scrape_url(self, url):
         """
         Scrape a single URL and return data and found links.
@@ -361,6 +480,16 @@ class RobopolScraper:
             downloaded_images = self.download_page_images(soup, url)
             self.status_callback(f"Downloaded {len(downloaded_images)} images for {url}")
         
+        # Download CSS and JavaScript if enabled
+        downloaded_css = []
+        downloaded_js = []
+        if self.download_css or self.download_js:
+            downloaded_css, downloaded_js = self.download_page_resources(soup, url)
+            if self.download_css:
+                self.status_callback(f"Downloaded {len(downloaded_css)} CSS files for {url}")
+            if self.download_js:
+                self.status_callback(f"Downloaded {len(downloaded_js)} JavaScript files for {url}")
+        
         # Extract information
         title = soup.title.text if soup.title else "No Title"
         
@@ -378,7 +507,9 @@ class RobopolScraper:
             'title': title,
             'html_file': html_file,
             'content_snippet': content[:500] + "..." if len(content) > 500 else content,
-            'downloaded_images': downloaded_images
+            'downloaded_images': downloaded_images,
+            'downloaded_css': downloaded_css,
+            'downloaded_js': downloaded_js
         }
         
         # Add to scraped data
@@ -403,6 +534,11 @@ class RobopolScraper:
             else:
                 logger.info(f"Progress: {progress}% ({done_count}/{total_count})")
             
+    def request_stop(self):
+        """Request the scraper to stop processing."""
+        self.stop_requested = True
+        self.status_callback("Stop requested, finishing current operation...")
+    
     def run_scraper(self, output_json=None):
         """
         Start the scraping process from the base URL.
@@ -427,6 +563,9 @@ class RobopolScraper:
             self.stats['failed_scrapes'] = 0
             self.stats['filtered_urls'] = 0
             self.stats['downloaded_images'] = 0
+            self.stats['downloaded_css'] = 0
+            self.stats['downloaded_js'] = 0
+            self.stop_requested = False
             
             # Start scraping from base URL
             self.queue.add(self.base_url)
@@ -434,12 +573,17 @@ class RobopolScraper:
             # Initialize progress bar at the beginning
             self._update_progress(0, 1)
             
-            while self.queue:
+            while self.queue and not self.stop_requested:
                 # Get next URL from queue
                 url = self.queue.pop()
                 
                 # Scrape URL
                 data, links = self.scrape_url(url)
+                
+                # Check if stop was requested during scraping
+                if self.stop_requested:
+                    self.status_callback("Stopping scraping as requested...")
+                    break
                 
                 # Add new URLs to queue
                 for link in links:
@@ -447,6 +591,11 @@ class RobopolScraper:
                 
                 # Update progress bar
                 self._update_progress(len(self.visited_urls), len(self.visited_urls) + len(self.queue))
+            
+            # Check if scraping was stopped
+            if self.stop_requested:
+                self.status_callback("Scraping stopped by user request.")
+                return False
             
             # Completion
             self.stats['end_time'] = time.time()
@@ -459,6 +608,10 @@ class RobopolScraper:
             
             if self.download_images:
                 self.status_callback(f"Total images downloaded: {self.stats['downloaded_images']}")
+            if self.download_css:
+                self.status_callback(f"Total CSS files downloaded: {self.stats['downloaded_css']}")
+            if self.download_js:
+                self.status_callback(f"Total JavaScript files downloaded: {self.stats['downloaded_js']}")
             
             # Set progress to 100% and final counts
             self._update_progress(len(self.visited_urls), len(self.visited_urls))
@@ -473,6 +626,8 @@ class RobopolScraper:
                             'failed_scrapes': self.stats['failed_scrapes'],
                             'filtered_urls': self.stats['filtered_urls'],
                             'downloaded_images': self.stats['downloaded_images'],
+                            'downloaded_css': self.stats['downloaded_css'],
+                            'downloaded_js': self.stats['downloaded_js'],
                             'duration_seconds': duration
                         },
                         'scraped_data': self.scraped_data
