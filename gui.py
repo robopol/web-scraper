@@ -11,8 +11,9 @@ class ScraperGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("RobopolScraper - Web Extractor")
-        self.root.geometry("800x650")
+        self.root.geometry("800x850")
         self.root.resizable(True, True)
+        self.root.minsize(800, 850)
         
         # State variables
         self.scraping_active = False
@@ -57,7 +58,7 @@ class ScraperGUI:
         """Set up components on the basic settings tab"""
         # URL input
         ttk.Label(self.basic_tab, text="Page URL:").grid(row=0, column=0, sticky=tk.W, padx=10, pady=5)
-        self.url_var = tk.StringVar(value="https://robopol.sk")
+        self.url_var = tk.StringVar(value="https://yourdomain.com")
         ttk.Entry(self.basic_tab, textvariable=self.url_var, width=60).grid(row=0, column=1, sticky=tk.EW, padx=10, pady=5, columnspan=2)
         
         # Output directory
@@ -138,6 +139,55 @@ class ScraperGUI:
         # Disable image settings if not needed
         self.toggle_image_options()
         
+        # CSS download settings
+        ttk.Label(self.advanced_tab, text="CSS:").grid(row=3, column=0, sticky=tk.W, padx=10, pady=5)
+        
+        css_frame = ttk.Frame(self.advanced_tab)
+        css_frame.grid(row=3, column=1, sticky=tk.W, padx=10, pady=5, columnspan=3)
+        
+        self.download_css_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(css_frame, text="Download CSS styles", variable=self.download_css_var, 
+                        command=self.toggle_css_options).pack(anchor=tk.W)
+        
+        self.css_frame_options = ttk.Frame(css_frame)
+        self.css_frame_options.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(self.css_frame_options, text="Directory for CSS files:").pack(anchor=tk.W, pady=2)
+        self.styles_dir_var = tk.StringVar(value=os.path.join(os.getcwd(), "scrap", "styles"))
+        self.styles_dir_entry = ttk.Entry(self.css_frame_options, textvariable=self.styles_dir_var, width=50)
+        self.styles_dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=2)
+        
+        self.styles_dir_button = ttk.Button(self.css_frame_options, text="Select", command=self.select_styles_dir)
+        self.styles_dir_button.pack(side=tk.RIGHT, padx=5, pady=2)
+        
+        # Disable CSS settings if not needed
+        self.toggle_css_options()
+        
+        # JavaScript download settings
+        ttk.Label(self.advanced_tab, text="JavaScript:").grid(row=4, column=0, sticky=tk.W, padx=10, pady=5)
+        
+        js_frame = ttk.Frame(self.advanced_tab)
+        js_frame.grid(row=4, column=1, sticky=tk.W, padx=10, pady=5, columnspan=3)
+        
+        self.download_js_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(js_frame, text="Download JavaScript files", variable=self.download_js_var, 
+                        command=self.toggle_js_options).pack(anchor=tk.W)
+        
+        self.js_frame_options = ttk.Frame(js_frame)
+        self.js_frame_options.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(self.js_frame_options, text="Directory for JavaScript files:").pack(anchor=tk.W, pady=2)
+        self.scripts_dir_var = tk.StringVar(value=os.path.join(os.getcwd(), "scrap", "scripts"))
+        self.scripts_dir_entry = ttk.Entry(self.js_frame_options, textvariable=self.scripts_dir_var, width=50)
+        self.scripts_dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=2)
+        
+        self.scripts_dir_button = ttk.Button(self.js_frame_options, text="Select", command=self.select_scripts_dir)
+        self.scripts_dir_button.pack(side=tk.RIGHT, padx=5, pady=2)
+        
+        # Disable CSS and JS settings if not needed
+        self.toggle_css_options()
+        self.toggle_js_options()
+        
         # Set dynamic layout
         self.advanced_tab.columnconfigure(1, weight=1)
     
@@ -188,6 +238,9 @@ class ScraperGUI:
         self.stop_button = ttk.Button(self.button_frame, text="Stop", command=self.stop_scraping, style="Stop.TButton", state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5)
         
+        self.reset_button = ttk.Button(self.button_frame, text="Reset", command=self.reset_application)
+        self.reset_button.pack(side=tk.LEFT, padx=5)
+        
         ttk.Button(self.button_frame, text="Close", command=self.close_application).pack(side=tk.RIGHT, padx=5)
     
     def log(self, message):
@@ -234,6 +287,18 @@ class ScraperGUI:
         if directory:
             self.images_dir_var.set(directory)
     
+    def select_styles_dir(self):
+        """Open dialog for selecting CSS directory"""
+        directory = filedialog.askdirectory(initialdir=self.styles_dir_var.get())
+        if directory:
+            self.styles_dir_var.set(directory)
+    
+    def select_scripts_dir(self):
+        """Open dialog for selecting JavaScript directory"""
+        directory = filedialog.askdirectory(initialdir=self.scripts_dir_var.get())
+        if directory:
+            self.scripts_dir_var.set(directory)
+    
     def toggle_image_options(self):
         """Enable/disable image settings based on checkbox"""
         if self.download_images_var.get():
@@ -242,6 +307,24 @@ class ScraperGUI:
         else:
             self.images_dir_entry.config(state=tk.DISABLED)
             self.images_dir_button.config(state=tk.DISABLED)
+    
+    def toggle_css_options(self):
+        """Enable/disable CSS settings based on checkbox"""
+        if self.download_css_var.get():
+            self.styles_dir_entry.config(state=tk.NORMAL)
+            self.styles_dir_button.config(state=tk.NORMAL)
+        else:
+            self.styles_dir_entry.config(state=tk.DISABLED)
+            self.styles_dir_button.config(state=tk.DISABLED)
+    
+    def toggle_js_options(self):
+        """Enable/disable JavaScript settings based on checkbox"""
+        if self.download_js_var.get():
+            self.scripts_dir_entry.config(state=tk.NORMAL)
+            self.scripts_dir_button.config(state=tk.NORMAL)
+        else:
+            self.scripts_dir_entry.config(state=tk.DISABLED)
+            self.scripts_dir_button.config(state=tk.DISABLED)
     
     def get_include_patterns(self):
         """Process regex pattern for including URLs"""
@@ -272,74 +355,126 @@ class ScraperGUI:
             return None
     
     def start_scraping(self):
-        """Start scraping process in a new thread"""
-        # URL check
+        """Start scraping process"""
+        if self.scraping_active:
+            messagebox.showwarning("Running", "Scraping is already running.")
+            return
+        
+        # Get parameters
         url = self.url_var.get().strip()
-        if not url:
-            messagebox.showerror("Error", "You must enter a URL")
-            return
-        
-        # Set output directory
         output_dir = self.output_dir_var.get().strip()
-        if not output_dir:
-            messagebox.showerror("Error", "You must enter an output directory")
+        
+        # Validate URL and output_dir
+        if not url:
+            messagebox.showerror("Error", "URL cannot be empty.")
             return
         
-        # Option to use custom directory for images
+        if not output_dir:
+            messagebox.showerror("Error", "Output directory cannot be empty.")
+            return
+        
+        # Prepare JSON output path
+        json_filename = self.json_file_var.get().strip()
+        if not json_filename:
+            json_filename = "scraped_data.json"
+        
+        if not json_filename.endswith('.json'):
+            json_filename += '.json'
+        
+        json_path = os.path.join(output_dir, json_filename)
+        
+        # Get filtering parameters
+        filter_eshop = self.filter_eshop_var.get()
+        filter_english = self.filter_english_var.get()
+        recursive = self.recursive_var.get()
+        
+        # Get advanced parameters
+        request_delay = self.delay_var.get()
+        url_include_patterns = self.get_include_patterns()
+        url_exclude_patterns = self.get_exclude_patterns()
+        
+        # Image download settings
+        download_images = False
         images_dir = None
+        
         if self.download_images_var.get():
+            download_images = True
             images_dir = self.images_dir_var.get().strip()
-            if not images_dir:
-                messagebox.showerror("Error", "You must enter a directory for images")
-                return
+            
+            # Create images directory if doesn't exist
+            if images_dir and not os.path.exists(images_dir):
+                try:
+                    os.makedirs(images_dir, exist_ok=True)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to create images directory: {e}")
+                    return
         
-        # Set output JSON file
-        json_file = self.json_file_var.get().strip()
-        if not json_file:
-            json_file = "scraped_data.json"
+        # CSS download settings
+        download_css = False
+        styles_dir = None
         
-        if not json_file.endswith('.json'):
-            json_file += '.json'
+        if self.download_css_var.get():
+            download_css = True
+            styles_dir = self.styles_dir_var.get().strip()
+            
+            # Create styles directory if doesn't exist
+            if styles_dir and not os.path.exists(styles_dir):
+                try:
+                    os.makedirs(styles_dir, exist_ok=True)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to create styles directory: {e}")
+                    return
         
-        json_path = os.path.join(output_dir, json_file)
+        # JavaScript download settings
+        download_js = False
+        scripts_dir = None
         
-        # Create directories if they don't exist
-        os.makedirs(output_dir, exist_ok=True)
-        if images_dir:
-            os.makedirs(images_dir, exist_ok=True)
+        if self.download_js_var.get():
+            download_js = True
+            scripts_dir = self.scripts_dir_var.get().strip()
+            
+            # Create scripts directory if doesn't exist
+            if scripts_dir and not os.path.exists(scripts_dir):
+                try:
+                    os.makedirs(scripts_dir, exist_ok=True)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to create scripts directory: {e}")
+                    return
         
-        # Get URL regex patterns
-        include_patterns = self.get_include_patterns()
-        exclude_patterns = self.get_exclude_patterns()
-        
-        # Disable Start button, enable Stop button
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-        
-        # Set progress bar to 0
-        self.update_progress(0, 0, 0)
-        self.update_status("Starting scraper...")
-        
-        # Set flag that scraping is running
-        self.scraping_active = True
-        
-        # Initialize scraper with custom progress callback for more detailed information
+        # Create and configure scraper
         self.scraper = RobopolScraper(
             output_dir=output_dir,
             base_url=url,
             status_callback=self.update_status,
             progress_callback=self.progress_callback_wrapper,
-            filter_eshop=self.filter_eshop_var.get(),
-            filter_english=self.filter_english_var.get(),
-            recursive=self.recursive_var.get(),
-            request_delay=self.delay_var.get(),
-            url_include_patterns=include_patterns,
-            url_exclude_patterns=exclude_patterns,
-            download_images=self.download_images_var.get(),
-            images_dir=images_dir
+            filter_eshop=filter_eshop,
+            filter_english=filter_english,
+            recursive=recursive,
+            request_delay=request_delay,
+            url_include_patterns=url_include_patterns,
+            url_exclude_patterns=url_exclude_patterns,
+            download_images=download_images,
+            images_dir=images_dir,
+            download_css=download_css,
+            download_js=download_js,
+            styles_dir=styles_dir,
+            scripts_dir=scripts_dir
         )
         
-        # Start in a new thread
+        # Update UI
+        self.update_status("Starting scraper...")
+        self.progress_var.set(0)
+        self.progress_label.config(text="0%")
+        self.progress_info_var.set("Processed: 0 / 0 URLs")
+        
+        # Disable/enable buttons
+        self.start_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        
+        # Set flag
+        self.scraping_active = True
+        
+        # Start scraper in separate thread
         self.scraper_thread = threading.Thread(target=self.run_scraper, args=(json_path,))
         self.scraper_thread.daemon = True
         self.scraper_thread.start()
@@ -349,10 +484,12 @@ class ScraperGUI:
         try:
             result = self.scraper.run_scraper(output_json=json_path)
             
-            if result:
+            if result is True:  # Scraping completed successfully
                 self.root.after(0, lambda: self.update_status(f"Scraping successfully completed. Results saved to {json_path}"))
-            else:
-                self.root.after(0, lambda: self.update_status("Error during scraping"))
+            elif result is False:  # Scraping was stopped
+                self.root.after(0, lambda: self.update_status("Scraping stopped by user."))
+            else:  # Result is the JSON path or None in case of error
+                self.root.after(0, lambda: self.update_status(f"Scraping completed. Results saved to {result}" if result else "Error during scraping"))
         except Exception as e:
             self.root.after(0, lambda: self.update_status(f"Critical error: {e}"))
         finally:
@@ -367,14 +504,17 @@ class ScraperGUI:
         """Stop scraping process"""
         if self.scraping_active:
             self.update_status("Stopping scraping...")
+            
+            # Request the scraper to stop
+            if self.scraper:
+                self.scraper.request_stop()
+            
+            # Set flag to prevent UI from accepting new scraping requests
             self.scraping_active = False
             
-            # Terminate scraper
-            if self.scraper:
-                self.scraper.close()
-            
-            # Restore UI elements
-            self.finish_scraping()
+            # Note: We do not immediately restore UI elements
+            # They will be restored when the scraper thread actually stops
+            # by calling finish_scraping() from the run_scraper method
     
     def finish_scraping(self):
         """Restore UI elements after completion/stopping scraping"""
@@ -395,6 +535,39 @@ class ScraperGUI:
         """Wrapper for progress callback that adds additional URL count information"""
         # We need to use after because this function is called from another thread
         self.root.after(0, lambda: self.update_progress(value, current_count, total_count))
+    
+    def reset_application(self):
+        """Reset application state for a new scraping session"""
+        # Check if scraping is active
+        if self.scraping_active:
+            messagebox.showwarning("Warning", "Scraping is still running. Stop it first.")
+            return
+            
+        # Reset progress bar and labels
+        self.progress_var.set(0)
+        self.progress_label.config(text="0%")
+        self.progress_info_var.set("Processed: 0 / 0 URLs")
+        self.status_label.config(text="Status: Ready")
+        
+        # Clear log
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.DISABLED)
+        
+        # Release resources from previous scraper
+        if self.scraper:
+            self.scraper.close()
+            self.scraper = None
+        
+        # Reset application state
+        self.scraper_thread = None
+        
+        # Reset buttons
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+        
+        # Notify user
+        self.log("Application reset. Ready for a new scraping session.")
 
 def main():
     """Start the GUI application"""
